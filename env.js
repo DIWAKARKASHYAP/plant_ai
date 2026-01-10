@@ -1,0 +1,1 @@
+// mdkg202_db_user  qwer1234       mongodb+srv://mdkg202_db_user:qwer1234@cluster0.08saakj.mongodb.net/
