@@ -19,6 +19,7 @@ import ScanResultModal from '../components/plantScan/ScanResultModal';
 import AIAnalysisLoading from '../components/plantScan/AIAnalysisLoading';
 import { saveScan } from '../services/scanStorage';
 import { saveCapturedImage, formatImageUri, saveImageMetadata } from '../services/imageStorage';
+import {BACKEND_URL} from '../global';
 
 const PlantScan = ({ onBack, onScanComplete }: any) => {
   const cameraRef = useRef<any>(null);
@@ -158,109 +159,56 @@ const PlantScan = ({ onBack, onScanComplete }: any) => {
     }
   };
 
-  const uploadAndAnalyzeImage = async (imageUri: string) => {
-    try {
-      // ← SAVE IMAGE TO PERSISTENT STORAGE
-      console.log('Saving image to persistent storage...');
-      const persistentImagePath = await saveCapturedImage(imageUri);
-      const formattedImageUri = formatImageUri(persistentImagePath);
+const uploadAndAnalyzeImage = async (imageUri: string) => {
+  try {
+    console.log("Saving image...");
+    const persistentImagePath = await saveCapturedImage(imageUri);
+    const formattedImageUri = formatImageUri(persistentImagePath);
+    const fileName = persistentImagePath.split("/").pop() || "plant.jpg";
 
-      const formData = new FormData();
-      const fileName = persistentImagePath.split('/').pop() || 'plant.jpg';
+    const formData = new FormData();
+    formData.append("image", {
+      uri: formattedImageUri,
+      type: "image/jpeg",
+      name: fileName,
+    } as any);
 
-      formData.append('image', {
-        uri: formattedImageUri,
-        type: 'image/jpeg',
-        name: fileName,
-      } as any);
+    console.log("Uploading to AI backend...");
 
-      console.log('Uploading image to API...');
-      // const uploadResponse = await fetch('https://jsonplaceholder.typicode.com/posts', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'multipart/form-data',
-      //   },
-      //   body: formData,
-      // });
+    const response = await fetch(`${BACKEND_URL}/scan-plant`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+      body: formData,
+    });
 
-      // if (!uploadResponse.ok) {
-      //   throw new Error('Image upload failed');
-      // }
-
-      // const uploadData = await uploadResponse.json();
-      // console.log('Image uploaded successfully:', uploadData);
-
-      setLoading(false);
-      setAnalyzing(true);
-
-      // Simulate AI analysis
-      // await new Promise(resolve => setTimeout(resolve, 8000));
-
-      const resultId =  Date.now().toString();
-      // const resultId = uploadData.id || Date.now().toString();
-      
-      // Save image metadata
-      await saveImageMetadata(resultId, formattedImageUri);
-
-      const result: any = {
-        id: resultId,
-        plantName: 'Monstera Deliciosa',
-        plantType: 'Indoor Plant',
-        growthStage: 'Mature',
-        healthStatus: 'Healthy',
-        healthScore: 85,
-        issues: [
-          {
-            name: 'Minor Brown Spots',
-            severity: 'low',
-            description: 'Small brown spots appearing on older leaves.',
-            possibleCauses: [
-              'Inconsistent watering schedule',
-              'Low humidity (below 50%)',
-              'Calcium deficiency',
-            ],
-          },
-        ],
-        careRecommendations: {
-          sunlight: 'Bright, indirect light for 6-8 hours daily',
-          wateringFrequency: 'Water every 1-2 weeks when soil is dry',
-          soilType: 'Well-draining potting soil with peat moss',
-          fertilization: 'Monthly during growing season (spring/summer)',
-          preventiveTips: [
-            'Check for pests weekly',
-            'Wipe leaves monthly to remove dust',
-            'Rotate plant quarterly for even growth',
-          ],
-          growthTips: [
-            'Provide moss pole for climbing',
-            'Keep humidity above 50%',
-            'Prune aerial roots for bushier growth',
-          ],
-        },
-        recommendations: [
-          'Water every 1-2 weeks',
-          'Place in bright, indirect light',
-          'Maintain 65-75°F temperature',
-        ],
-        image: formattedImageUri, // ← USE FORMATTED PERSISTENT PATH
-      };
-
-      setAnalyzing(false);
-      setScanResult(result);
-      setShowResult(true);
-
-      const saved = await saveScan(result);
-      if (saved) {
-        console.log('Scan saved to storage successfully');
-      }
-    } catch (error) {
-      console.error('Analysis error:', error);
-      setCameraActive(true);
-      setLoading(false);
-      setAnalyzing(false);
-      Alert.alert('Error', 'Failed to analyze image. Please try again.');
+    if (!response.ok) {
+      throw new Error("AI server failed");
     }
-  };
+
+    const aiResult = await response.json();
+
+    console.log("AI result:", aiResult);
+
+    // attach image for UI
+    aiResult.image = formattedImageUri;
+
+    setAnalyzing(false);
+    setScanResult(aiResult);
+    setShowResult(true);
+
+    await saveImageMetadata(aiResult.id, formattedImageUri);
+    await saveScan(aiResult);
+
+  } catch (error) {
+    console.error("AI error:", error);
+    setCameraActive(true);
+    setLoading(false);
+    setAnalyzing(false);
+    Alert.alert("Error", "Plant analysis failed");
+  }
+};
 
   const handleScanComplete = () => {
     setShowResult(false);

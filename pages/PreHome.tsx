@@ -27,6 +27,7 @@ const PreHome = ({ onNavigateToHome }: any) => {
     setCurrentStep('home');
   };
 
+  console.log(currentStep)
   // RENDER LOGIN SCREEN
   if (currentStep === 'login') {
     return <LoginScreen onSuccess={handleLoginSuccess} />;

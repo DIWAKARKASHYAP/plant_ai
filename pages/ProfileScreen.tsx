@@ -83,6 +83,7 @@ const ProfileScreen = ({ onBack, onLogout }: any) => {
           onPress: async () => {
             try {
               await AsyncStorage.setItem('hasCompletedOnboarding', 'false');
+              await AsyncStorage.removeItem('user');
               onLogout?.();
             } catch (error) {
               Alert.alert('Error', 'Failed to logout');

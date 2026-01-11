@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   Alert,
   SafeAreaView,
   Animated,
@@ -12,6 +11,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { BACKEND_URL } from '../global';
+import Loader from '../components/Loader';
 
 GoogleSignin.configure({
   webClientId: '263100516892-vth2faik4ua4ba4bbobmesnn749a3847.apps.googleusercontent.com',
@@ -95,6 +95,9 @@ const LoginScreen = ({ onSuccess }: any) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Loader Component */}
+      <Loader visible={loading} size="medium" color="#10B981" />
+
       {/* Decorative elements */}
       <View style={[styles.decorativeCircle, styles.circle1]} />
       <View style={[styles.decorativeCircle, styles.circle2]} />
@@ -150,20 +153,13 @@ const LoginScreen = ({ onSuccess }: any) => {
             disabled={loading}
             activeOpacity={0.8}
           >
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator color="#1F2937" size="small" />
-                <Text style={styles.googleButtonText}>Signing in...</Text>
+            <View style={styles.buttonContent}>
+              {/* Google G Icon */}
+              <View style={styles.googleIconContainer}>
+                <Text style={styles.googleG}>G</Text>
               </View>
-            ) : (
-              <View style={styles.buttonContent}>
-                {/* Google G Icon */}
-                <View style={styles.googleIconContainer}>
-                  <Text style={styles.googleG}>G</Text>
-                </View>
-                <Text style={styles.googleButtonText}>Continue with Google</Text>
-              </View>
-            )}
+              <Text style={styles.googleButtonText}>Continue with Google</Text>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -394,11 +390,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
   },
   googleIconContainer: {
     width: 28,
