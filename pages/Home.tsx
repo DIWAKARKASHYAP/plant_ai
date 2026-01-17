@@ -30,6 +30,19 @@ const [showResultModal, setShowResultModal] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
 
+  const GENERAL_TIPS = [
+  "🌿 Tip: Check soil moisture before watering — avoid overwatering.",
+  "☀️ Tip: Keep plants in bright indirect light for best growth.",
+  "💧 Reminder: Water only when the top soil feels dry to touch.",
+  "🍃 Tip: Wipe leaves weekly to help plants breathe better.",
+  "🪴 Tip: Rotate your plant every few days for even growth.",
+  "🌱 Tip: Use pots with drainage holes to prevent root rot.",
+  "🌼 Tip: Remove dead leaves to help the plant grow healthier.",
+];
+const getRandomTip = () => {
+  return GENERAL_TIPS[Math.floor(Math.random() * GENERAL_TIPS.length)];
+};
+
   useEffect(() => {
     loadDashboardData();
   }, []);
@@ -50,7 +63,7 @@ const [showResultModal, setShowResultModal] = useState(false);
         lastScanDate: recentScans.length > 0 
           ? new Date(recentScans[0].createdAt).toLocaleDateString()
           : 'Never',
-        weatherAlert: '⚠️ Rain expected tomorrow - reduce watering frequency',
+        weatherAlert: getRandomTip(),
         recentScans
       });
     } catch (error) {
@@ -60,7 +73,7 @@ const [showResultModal, setShowResultModal] = useState(false);
         healthyPlants: 0,
         plantsNeedingAttention: 0,
         lastScanDate: 'Never',
-        weatherAlert: '⚠️ Rain expected tomorrow - reduce watering frequency',
+        weatherAlert: getRandomTip(),
         recentScans: [],
       });
     } finally {
