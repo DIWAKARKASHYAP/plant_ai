@@ -87,6 +87,7 @@ const styles = StyleSheet.create({
   guideText: {
     color: '#fff',
     fontSize: 14,
+    paddingBottom: 120,
     fontWeight: '500',
     textAlign: 'center',
   },

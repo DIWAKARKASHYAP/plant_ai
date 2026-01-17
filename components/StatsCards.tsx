@@ -4,28 +4,39 @@ import { View, Text, StyleSheet } from 'react-native';
 const StatsCards = ({ data }: any) => {
   return (
     <View style={styles.statsContainer}>
+      {/* Healthy Plants Card */}
       <View style={[styles.statCard, styles.statCardGreen]}>
-        <View style={styles.statCardHeader}>
-          <Text style={styles.statIcon}>🌱</Text>
-          <Text style={styles.statValue}>{data?.healthyPlants}</Text>
+        <View style={styles.iconCircle}>
+          <View style={styles.leafIcon} />
         </View>
+        <Text style={styles.statValue}>{data?.healthyPlants || 0}</Text>
         <Text style={styles.statLabel}>Healthy Plants</Text>
       </View>
 
+      {/* Needs Attention Card */}
       <View style={[styles.statCard, styles.statCardOrange]}>
-        <View style={styles.statCardHeader}>
-          <Text style={styles.statIcon}>⚠️</Text>
-          <Text style={styles.statValue}>{data?.plantsNeedingAttention}</Text>
+        <View style={styles.iconCircle}>
+          <View style={styles.alertIcon}>
+            <View style={styles.alertTriangle} />
+            <View style={styles.alertDot} />
+          </View>
         </View>
-        <Text style={styles.statLabel}>Needs Attention</Text>
+        <Text style={styles.statValue}>{data?.plantsNeedingAttention || 0}</Text>
+        <Text style={styles.statLabel}>Needs Care</Text>
       </View>
 
+      {/* Last Scan Card */}
       <View style={[styles.statCard, styles.statCardBlue]}>
-        <View style={styles.statCardHeader}>
-          <Text style={styles.statIcon}>📅</Text>
+        <View style={styles.iconCircle}>
+          <View style={styles.calendarIcon}>
+            <View style={styles.calendarTop} />
+            <View style={styles.calendarBody}>
+              <View style={styles.calendarDot} />
+            </View>
+          </View>
         </View>
-        <Text style={styles.statLabelSmall}>Last Scan</Text>
-        <Text style={styles.statValueSmall}>{data?.lastScanDate}</Text>
+        <Text style={styles.statValueSmall}>{data?.lastScanDate || 'Never'}</Text>
+        <Text style={styles.statLabel}>Last Scan</Text>
       </View>
     </View>
   );
@@ -39,52 +50,120 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
-    elevation: 2,
+    alignItems: 'center',
+    elevation: 4,
     shadowColor: '#000',
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    minHeight: 120,
+    justifyContent: 'space-between',
   },
   statCardGreen: {
-    backgroundColor: '#34C759',
+    backgroundColor: '#10B981',
   },
   statCardOrange: {
-    backgroundColor: '#FF9500',
+    backgroundColor: '#F59E0B',
   },
   statCardBlue: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#3B82F6',
   },
-  statCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 8,
   },
-  statIcon: {
-    fontSize: 24,
+  leafIcon: {
+    width: 18,
+    height: 22,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 4,
+  },
+  alertIcon: {
+    width: 20,
+    height: 22,
+    position: 'relative',
+  },
+  alertTriangle: {
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderLeftWidth: 10,
+    borderRightWidth: 10,
+    borderBottomWidth: 18,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#fff',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  alertDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: '#F59E0B',
+    position: 'absolute',
+    bottom: 3,
+    left: 8.5,
+  },
+  calendarIcon: {
+    width: 20,
+    height: 22,
+    position: 'relative',
+  },
+  calendarTop: {
+    width: 20,
+    height: 4,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
+    position: 'absolute',
+    top: 0,
+  },
+  calendarBody: {
+    width: 20,
+    height: 16,
+    backgroundColor: '#fff',
+    borderRadius: 3,
+    position: 'absolute',
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calendarDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#3B82F6',
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: 'bold',
     color: '#fff',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.9)',
-    fontWeight: '600',
-  },
-  statLabelSmall: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.8)',
-    fontWeight: '600',
     marginBottom: 4,
   },
   statValueSmall: {
-    fontSize: 13,
+    fontSize: 14,
+    fontWeight: 'bold',
     color: '#fff',
-    fontWeight: '700',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
 

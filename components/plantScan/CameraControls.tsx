@@ -14,11 +14,10 @@ const CameraControls = ({
     <View style={styles.container} pointerEvents="box-none">
       {/* Top Flash Button */}
       <TouchableOpacity
-        style={styles.flashButton}
-        onPress={onFlashToggle}
+        // style={styles.flashButton}
+        // onPress={onFlashToggle}
         disabled={loading}
       >
-        <Text style={styles.flashIcon}>{flashEnabled ? '⚡' : '🔦'}</Text>
       </TouchableOpacity>
 
       {/* Bottom Controls */}
@@ -56,7 +55,6 @@ const CameraControls = ({
           <View style={styles.buttonBackground}>
             <Text style={styles.actionButtonIcon}>✕</Text>
           </View>
-          <Text style={styles.actionButtonText}>Back</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -107,11 +105,11 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    // backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    // borderWidth: 1,
+    // borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   actionButtonIcon: {
     fontSize: 32,

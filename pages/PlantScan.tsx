@@ -10,6 +10,7 @@ import {
   PermissionsAndroid,
   Platform,
   Linking,
+  BackHandler,
 } from 'react-native';
 import { Camera, useCameraPermission, useCameraDevice } from 'react-native-vision-camera';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -27,7 +28,6 @@ const PlantScan = ({ onBack, onScanComplete }: any) => {
   const device = useCameraDevice('back');
   const [cameraPermission, setCameraPermission] = useState<boolean | null>(null);
   const [flashEnabled, setFlashEnabled] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(false);
   const [analyzing, setAnalyzing] = useState<boolean>(false);
   const [scanResult, setScanResult] = useState<any>(null);
   const [showResult, setShowResult] = useState<boolean>(false);
@@ -38,6 +38,19 @@ const PlantScan = ({ onBack, onScanComplete }: any) => {
     checkCameraPermission();
   }, []);
 
+  useEffect(() => {
+  const backAction = () => {
+    onBack?.();  // ✅ go back inside app
+    return true; // ✅ prevent app from closing
+  };
+
+  const backHandler = BackHandler.addEventListener(
+    "hardwareBackPress",
+    backAction
+  );
+
+  return () => backHandler.remove();
+}, []);
   const checkCameraPermission = async () => {
     try {
       if (Platform.OS === 'android') {
@@ -122,7 +135,7 @@ const PlantScan = ({ onBack, onScanComplete }: any) => {
 
       if (photo?.path) {
         setCameraActive(false);
-        setLoading(true);
+        setAnalyzing(true);
         await uploadAndAnalyzeImage(photo.path);
       } else {
         throw new Error('Photo path not available');
@@ -130,7 +143,7 @@ const PlantScan = ({ onBack, onScanComplete }: any) => {
     } catch (error) {
       console.error('Camera capture error:', error);
       setCameraActive(true);
-      setLoading(false);
+      setAnalyzing(false);
       Alert.alert('Error', `Failed to capture image: ${String(error).substring(0, 100)}`);
     }
   };
@@ -150,7 +163,7 @@ const PlantScan = ({ onBack, onScanComplete }: any) => {
       }
 
       if (response.assets && response.assets[0]?.uri) {
-        setLoading(true);
+        setAnalyzing(true);
         await uploadAndAnalyzeImage(response.assets[0].uri);
       }
     } catch (error) {
@@ -159,56 +172,55 @@ const PlantScan = ({ onBack, onScanComplete }: any) => {
     }
   };
 
-const uploadAndAnalyzeImage = async (imageUri: string) => {
-  try {
-    console.log("Saving image...");
-    const persistentImagePath = await saveCapturedImage(imageUri);
-    const formattedImageUri = formatImageUri(persistentImagePath);
-    const fileName = persistentImagePath.split("/").pop() || "plant.jpg";
+  const uploadAndAnalyzeImage = async (imageUri: string) => {
+    try {
+      console.log("Saving image...");
+      const persistentImagePath = await saveCapturedImage(imageUri);
+      const formattedImageUri = formatImageUri(persistentImagePath);
+      const fileName = persistentImagePath.split("/").pop() || "plant.jpg";
 
-    const formData = new FormData();
-    formData.append("image", {
-      uri: formattedImageUri,
-      type: "image/jpeg",
-      name: fileName,
-    } as any);
+      const formData = new FormData();
+      formData.append("image", {
+        uri: formattedImageUri,
+        type: "image/jpeg",
+        name: fileName,
+      } as any);
 
-    console.log("Uploading to AI backend...");
+      console.log("Uploading to AI backend...");
 
-    const response = await fetch(`${BACKEND_URL}/scan-plant`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-      body: formData,
-    });
+      const response = await fetch(`${BACKEND_URL}/scan-plant`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        body: formData,
+      });
 
-    if (!response.ok) {
-      throw new Error("AI server failed");
+      if (!response.ok) {
+        throw new Error("AI server failed");
+      }
+
+      const aiResult = await response.json();
+
+      console.log("AI result:", aiResult);
+
+      // attach image for UI
+      aiResult.image = formattedImageUri;
+
+      setAnalyzing(false);
+      setScanResult(aiResult);
+      setShowResult(true);
+
+      await saveImageMetadata(aiResult.id, formattedImageUri);
+      await saveScan(aiResult);
+
+    } catch (error) {
+      console.error("AI error:", error);
+      setCameraActive(true);
+      setAnalyzing(false);
+      Alert.alert("Error", "Plant analysis failed");
     }
-
-    const aiResult = await response.json();
-
-    console.log("AI result:", aiResult);
-
-    // attach image for UI
-    aiResult.image = formattedImageUri;
-
-    setAnalyzing(false);
-    setScanResult(aiResult);
-    setShowResult(true);
-
-    await saveImageMetadata(aiResult.id, formattedImageUri);
-    await saveScan(aiResult);
-
-  } catch (error) {
-    console.error("AI error:", error);
-    setCameraActive(true);
-    setLoading(false);
-    setAnalyzing(false);
-    Alert.alert("Error", "Plant analysis failed");
-  }
-};
+  };
 
   const handleScanComplete = () => {
     setShowResult(false);
@@ -224,10 +236,12 @@ const uploadAndAnalyzeImage = async (imageUri: string) => {
     setCameraReady(true);
   };
 
+  // Show AI Analysis Loading
   if (analyzing) {
     return <AIAnalysisLoading />;
   }
 
+  // Show Scan Result Modal
   if (showResult && scanResult) {
     return (
       <ScanResultModal
@@ -238,11 +252,14 @@ const uploadAndAnalyzeImage = async (imageUri: string) => {
     );
   }
 
+  // Permission Denied Screen
   if (cameraPermission === false) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.permissionContainer}>
-          <Text style={styles.permissionIcon}>📷</Text>
+          <View style={styles.permissionIconContainer}>
+            <Text style={styles.permissionIcon}>📷</Text>
+          </View>
           <Text style={styles.permissionTitle}>Camera Access Required</Text>
           <Text style={styles.permissionText}>
             We need access to your camera to scan plants and analyze their health.
@@ -253,55 +270,47 @@ const uploadAndAnalyzeImage = async (imageUri: string) => {
           >
             <Text style={styles.permissionButtonText}>Grant Permission</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.backButton} onPress={onBack}>
-            <Text style={styles.backButtonText}>Go Back</Text>
+          <TouchableOpacity style={styles.backButtonAlt} onPress={onBack}>
+            <Text style={styles.backButtonTextAlt}>← Go Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
+  // Checking Permissions
   if (cameraPermission === null) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.permissionContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          <ActivityIndicator size="large" color="#5BB885" />
           <Text style={styles.permissionText}>Checking permissions...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.uploadingContainer}>
-          <View style={styles.uploadingCard}>
-            <ActivityIndicator size="large" color="#007AFF" />
-            <Text style={styles.uploadingTitle}>Uploading Image...</Text>
-            <Text style={styles.uploadingText}>
-              Preparing your plant for analysis
-            </Text>
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
+  // No Camera Device Found
   if (device == null) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.permissionContainer}>
-          <Text style={styles.permissionIcon}>📷</Text>
-          <Text style={styles.permissionText}>No camera device found</Text>
-          <TouchableOpacity style={styles.backButton} onPress={onBack}>
-            <Text style={styles.backButtonText}>Go Back</Text>
+          <View style={styles.permissionIconContainer}>
+            <Text style={styles.permissionIcon}>📷</Text>
+          </View>
+          <Text style={styles.permissionTitle}>No Camera Found</Text>
+          <Text style={styles.permissionText}>
+            Unable to detect a camera device on your phone.
+          </Text>
+          <TouchableOpacity style={styles.backButtonAlt} onPress={onBack}>
+            <Text style={styles.backButtonTextAlt}>← Go Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
+  // Main Camera Screen
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.cameraContainer}>
@@ -323,39 +332,41 @@ const uploadAndAnalyzeImage = async (imageUri: string) => {
 
         <ScanGuideOverlay />
 
+        {/* Header with Back Button */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.closeButton} onPress={onBack}>
-            <Text style={styles.closeButtonText}>✕</Text>
+          <TouchableOpacity style={styles.backButton} onPress={onBack}>
+            <Text style={styles.backButtonIcon}>←</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Scan Plant</Text>
           <View style={styles.placeholder} />
         </View>
 
+        {/* Camera Controls */}
         <CameraControls
           flashEnabled={flashEnabled}
           onFlashToggle={() => setFlashEnabled(!flashEnabled)}
           onCapture={handleCapture}
           onGalleryUpload={handleGalleryUpload}
           onCancel={onBack}
-          loading={loading}
+          loading={false}
         />
       </View>
-
-      {showResult && scanResult && (
-        <ScanResultModal
-          result={scanResult}
-          onComplete={handleScanComplete}
-          onRetry={handleRetry}
-        />
-      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  cameraContainer: { flex: 1, position: 'relative' },
-  camera: { ...StyleSheet.absoluteFillObject },
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  cameraContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  camera: {
+    ...StyleSheet.absoluteFillObject,
+  },
   header: {
     position: 'absolute',
     top: 0,
@@ -364,47 +375,104 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
     zIndex: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
-  title: { fontSize: 18, fontWeight: '600', color: '#fff' },
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(91, 184, 133, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  closeButtonText: { fontSize: 24, color: '#fff', fontWeight: 'bold' },
-  placeholder: { width: 40 },
+  backButtonIcon: {
+    fontSize: 24,
+    color: '#fff',
+    fontWeight: '700',
+  },
+  placeholder: {
+    width: 44,
+  },
   permissionContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    backgroundColor: '#f8f9fa',
-  },
-  permissionIcon: { fontSize: 64, marginBottom: 16 },
-  permissionTitle: { fontSize: 20, fontWeight: '700', color: '#333', marginBottom: 12 },
-  permissionText: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 24, lineHeight: 24 },
-  permissionButton: {
-    backgroundColor: '#007AFF',
     paddingHorizontal: 30,
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+  },
+  permissionIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#F0F9F4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  permissionIcon: {
+    fontSize: 48,
+  },
+  permissionTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#333',
+    marginBottom: 12,
+    textAlign: 'center',
+    letterSpacing: -0.5,
+  },
+  permissionText: {
+    fontSize: 15,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 22,
+    paddingHorizontal: 20,
+  },
+  permissionButton: {
+    backgroundColor: '#5BB885',
+    paddingHorizontal: 40,
+    paddingVertical: 16,
+    borderRadius: 12,
     marginBottom: 16,
     width: '100%',
     alignItems: 'center',
+    shadowColor: '#5BB885',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  permissionButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  backButton: { paddingHorizontal: 24, paddingVertical: 12 },
-  backButtonText: { color: '#007AFF', fontSize: 16, fontWeight: '600' },
-  uploadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8f9fa' },
-  uploadingCard: { alignItems: 'center', paddingHorizontal: 20 },
-  uploadingTitle: { fontSize: 20, fontWeight: '700', color: '#333', marginTop: 20 },
-  uploadingText: { fontSize: 14, color: '#666', marginTop: 8, textAlign: 'center' },
+  permissionButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  backButtonAlt: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    marginTop: 8,
+  },
+  backButtonTextAlt: {
+    color: '#5BB885',
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });
 
 export default PlantScan;

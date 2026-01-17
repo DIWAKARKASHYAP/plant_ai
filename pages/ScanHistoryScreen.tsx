@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-  ScrollView,
+  BackHandler,
 } from 'react-native';
 import {
   getAllScans,
@@ -21,6 +21,7 @@ import {
   removeFavorite,
   isFavorite,
 } from '../services/scanStorage';
+import ScanResultModal from '../components/plantScan/ScanResultModal';
 
 interface StoredScan {
   id: string;
@@ -62,14 +63,12 @@ const ScanHistoryScreen = ({ onBack }: any) => {
       const allScans = await getAllScans();
       setScans(allScans);
 
-      // Check favorite status for each scan
       const favStatus: { [key: string]: boolean } = {};
       for (const scan of allScans) {
         favStatus[scan.id] = await isFavorite(scan.id);
       }
       setFavorites(favStatus);
 
-      // Get stats
       const scanStats = await getScanStats();
       setStats(scanStats);
     } catch (error) {
@@ -79,6 +78,19 @@ const ScanHistoryScreen = ({ onBack }: any) => {
       setLoading(false);
     }
   };
+  useEffect(() => {
+  const backAction = () => {
+    onBack?.();  // ✅ go back inside app
+    return true; // ✅ prevent app from closing
+  };
+
+  const backHandler = BackHandler.addEventListener(
+    "hardwareBackPress",
+    backAction
+  );
+
+  return () => backHandler.remove();
+}, []);
 
   const handleDeleteScan = (scanId: string) => {
     Alert.alert(
@@ -115,9 +127,9 @@ const ScanHistoryScreen = ({ onBack }: any) => {
   };
 
   const getHealthColor = (score: number) => {
-    if (score >= 80) return '#34C759';
-    if (score >= 60) return '#FF9500';
-    return '#ff3b30';
+    if (score >= 80) return '#10B981';
+    if (score >= 60) return '#F59E0B';
+    return '#EF4444';
   };
 
   const getHealthStatus = (score: number) => {
@@ -156,27 +168,24 @@ const ScanHistoryScreen = ({ onBack }: any) => {
       onPress={() => openScanDetail(item)}
       activeOpacity={0.7}
     >
-      {/* Plant Image */}
-      <Image
-        source={{ uri: item.image }}
-        style={styles.scanImage}
-      />
+      <Image source={{ uri: item.image }} style={styles.scanImage} />
 
-      {/* Plant Info */}
       <View style={styles.scanInfo}>
         <Text style={styles.plantName}>{item.plantName}</Text>
         <Text style={styles.scanDate}>{formatDate(item.createdAt)}</Text>
         {item.plantType && (
-          <Text style={styles.plantType}>📍 {item.plantType}</Text>
+          <View style={styles.plantTypeContainer}>
+            <View style={styles.locationDot} />
+            <Text style={styles.plantType}>{item.plantType}</Text>
+          </View>
         )}
       </View>
 
-      {/* Health Score */}
       <View style={styles.scoreContainer}>
         <View
           style={[
             styles.scoreCircle,
-            { borderColor: getHealthColor(item.healthScore) },
+            { backgroundColor: getHealthColor(item.healthScore) + '20' },
           ]}
         >
           <Text
@@ -188,240 +197,45 @@ const ScanHistoryScreen = ({ onBack }: any) => {
             {item.healthScore}
           </Text>
         </View>
-        <Text style={styles.scoreStatus}>
+        <Text style={[styles.scoreStatus, { color: getHealthColor(item.healthScore) }]}>
           {getHealthStatus(item.healthScore)}
         </Text>
       </View>
 
-      {/* Action Buttons */}
-      <TouchableOpacity
-        style={styles.favoriteButton}
-        onPress={() => handleToggleFavorite(item.id)}
-      >
-        <Text style={styles.favoriteIcon}>
-          {favorites[item.id] ? '❤️' : '🤍'}
-        </Text>
-      </TouchableOpacity>
+      <View style={styles.actionButtons}>
+        <TouchableOpacity
+          style={styles.favoriteButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            handleToggleFavorite(item.id);
+          }}
+        >
+          <Text style={styles.favoriteIcon}>
+            {favorites[item.id] ? '❤️' : '🤍'}
+          </Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.deleteButton}
-        onPress={() => handleDeleteScan(item.id)}
-      >
-        <Text style={styles.deleteIcon}>🗑️</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            handleDeleteScan(item.id);
+          }}
+        >
+          <Text style={styles.deleteIcon}>🗑️</Text>
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   );
 
-  const renderDetailModal = () => {
-    if (!selectedScan) return null;
-
-    return (
-      <Modal
-        visible={showDetailModal}
-        animationType="slide"
-        transparent={false}
-        onRequestClose={() => setShowDetailModal(false)}
-      >
-        <SafeAreaView style={styles.detailContainer}>
-          {/* Detail Header */}
-          <View style={styles.detailHeader}>
-            <TouchableOpacity
-              onPress={() => setShowDetailModal(false)}
-              style={styles.detailCloseButton}
-            >
-              <Text style={styles.detailCloseText}>← Back</Text>
-            </TouchableOpacity>
-            <Text style={styles.detailTitle}>Scan Details</Text>
-            <View style={styles.placeholder} />
-          </View>
-
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.detailScrollContent}
-          >
-            {/* Plant Image */}
-            <Image
-              source={{ uri: selectedScan.image }}
-              style={styles.detailImage}
-            />
-
-            {/* Plant Info Card */}
-            <View style={styles.detailCard}>
-              <Text style={styles.detailCardTitle}>🌿 Plant Information</Text>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Plant Name</Text>
-                <Text style={styles.detailValue}>{selectedScan.plantName}</Text>
-              </View>
-              {selectedScan.plantType && (
-                <View style={[styles.detailRow, styles.detailRowBorder]}>
-                  <Text style={styles.detailLabel}>Plant Type</Text>
-                  <Text style={styles.detailValue}>{selectedScan.plantType}</Text>
-                </View>
-              )}
-              {selectedScan.growthStage && (
-                <View style={[styles.detailRow, styles.detailRowBorder]}>
-                  <Text style={styles.detailLabel}>Growth Stage</Text>
-                  <Text style={styles.detailValue}>{selectedScan.growthStage}</Text>
-                </View>
-              )}
-              <View style={[styles.detailRow, styles.detailRowBorder]}>
-                <Text style={styles.detailLabel}>Scan Date</Text>
-                <Text style={styles.detailValue}>
-                  {formatDate(selectedScan.createdAt)}
-                </Text>
-              </View>
-            </View>
-
-            {/* Health Status Card */}
-            <View style={styles.detailCard}>
-              <Text style={styles.detailCardTitle}>❤️ Health Status</Text>
-              <View style={styles.healthDetailContainer}>
-                <View style={styles.healthDetailLeft}>
-                  <View
-                    style={[
-                      styles.healthDetailCircle,
-                      {
-                        borderColor: getHealthColor(selectedScan.healthScore),
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.healthDetailScore,
-                        {
-                          color: getHealthColor(selectedScan.healthScore),
-                        },
-                      ]}
-                    >
-                      {selectedScan.healthScore}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.healthDetailRight}>
-                  <Text style={styles.healthDetailStatus}>
-                    {getHealthStatus(selectedScan.healthScore)}
-                  </Text>
-                  <View
-                    style={[
-                      styles.healthDetailBar,
-                      {
-                        backgroundColor: getHealthColor(
-                          selectedScan.healthScore
-                        ),
-                        width: `${selectedScan.healthScore}%`,
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
-            </View>
-
-            {/* Issues Card */}
-            {selectedScan.issues && selectedScan.issues.length > 0 ? (
-              <View style={styles.detailCard}>
-                <Text style={styles.detailCardTitle}>🦠 Issues Detected</Text>
-                {selectedScan.issues.map((issue: any, index: number) => (
-                  <View key={index} style={styles.issueDetailCard}>
-                    <View style={styles.issueDetailHeader}>
-                      <Text style={styles.issueName}>{issue.name}</Text>
-                      <Text style={styles.issueSeverity}>
-                        {issue.severity?.toUpperCase()}
-                      </Text>
-                    </View>
-                    <Text style={styles.issueDescription}>
-                      {issue.description}
-                    </Text>
-                    {issue.possibleCauses && issue.possibleCauses.length > 0 && (
-                      <View style={styles.causesContainer}>
-                        <Text style={styles.causesLabel}>Possible Causes:</Text>
-                        {issue.possibleCauses.map((cause: string, i: number) => (
-                          <Text key={i} style={styles.causeItem}>
-                            • {cause}
-                          </Text>
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.detailCard}>
-                <View style={styles.noIssuesContainer}>
-                  <Text style={styles.noIssuesIcon}>✓</Text>
-                  <Text style={styles.noIssuesText}>
-                    No issues detected. Plant is healthy!
-                  </Text>
-                </View>
-              </View>
-            )}
-
-            {/* Care Recommendations */}
-            {selectedScan.careRecommendations && (
-              <View style={styles.detailCard}>
-                <Text style={styles.detailCardTitle}>
-                  💡 Care Recommendations
-                </Text>
-                <View style={styles.careRow}>
-                  <Text style={styles.careLabel}>☀️ Sunlight</Text>
-                  <Text style={styles.careValue}>
-                    {selectedScan.careRecommendations.sunlight}
-                  </Text>
-                </View>
-                <View style={[styles.careRow, styles.careRowBorder]}>
-                  <Text style={styles.careLabel}>💧 Watering</Text>
-                  <Text style={styles.careValue}>
-                    {selectedScan.careRecommendations.wateringFrequency}
-                  </Text>
-                </View>
-                <View style={[styles.careRow, styles.careRowBorder]}>
-                  <Text style={styles.careLabel}>🌱 Soil Type</Text>
-                  <Text style={styles.careValue}>
-                    {selectedScan.careRecommendations.soilType}
-                  </Text>
-                </View>
-                <View style={[styles.careRow, styles.careRowBorder]}>
-                  <Text style={styles.careLabel}>🥗 Fertilization</Text>
-                  <Text style={styles.careValue}>
-                    {selectedScan.careRecommendations.fertilization}
-                  </Text>
-                </View>
-              </View>
-            )}
-          </ScrollView>
-
-          {/* Action Buttons */}
-          <View style={styles.detailActions}>
-            <TouchableOpacity
-              style={styles.detailDeleteButton}
-              onPress={() => {
-                setShowDetailModal(false);
-                handleDeleteScan(selectedScan.id);
-              }}
-            >
-              <Text style={styles.detailDeleteText}>🗑️ Delete</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.detailFavoriteButton}
-              onPress={() => {
-                handleToggleFavorite(selectedScan.id);
-              }}
-            >
-              <Text style={styles.detailFavoriteText}>
-                {favorites[selectedScan.id] ? '❤️ Unfavorite' : '🤍 Favorite'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      </Modal>
-    );
-  };
-
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>📸</Text>
+      <View style={styles.emptyIconContainer}>
+        <Text style={styles.emptyIcon}>🌱</Text>
+      </View>
       <Text style={styles.emptyTitle}>No Scans Yet</Text>
       <Text style={styles.emptyText}>
-        Start scanning your plants to build your scan history
+        Start scanning your plants to build your collection and track their health over time
       </Text>
     </View>
   );
@@ -430,7 +244,8 @@ const ScanHistoryScreen = ({ onBack }: any) => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
+          <ActivityIndicator size="large" color="#10B981" />
+          <Text style={styles.loadingText}>Loading your garden...</Text>
         </View>
       </SafeAreaView>
     );
@@ -438,47 +253,87 @@ const ScanHistoryScreen = ({ onBack }: any) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack}>
-          <Text style={styles.backButton}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Scan History</Text>
-        <View style={styles.placeholder} />
+      {/* Botanical Background */}
+      <View style={styles.plantBackground}>
+        <View style={styles.glowTop} />
+        <View style={styles.glowBottom} />
+        <View style={styles.leafOne} />
+        <View style={styles.leafTwo} />
+        <View style={styles.leafThree} />
+
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onBack} style={styles.backButtonContainer} activeOpacity={0.7}>
+            <Text style={styles.backArrow}>←</Text>
+            <Text style={styles.backButton}>Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>My Garden</Text>
+          <View style={styles.placeholder} />
+        </View>
+
+        {/* Stats Card */}
+        {stats && stats.totalScans > 0 && (
+          <View style={styles.statsContainer}>
+            <View style={styles.statBox}>
+              <View style={styles.statIconContainer}>
+                <Text style={styles.statIconEmoji}>🌿</Text>
+              </View>
+              <Text style={styles.statValue}>{stats.totalScans}</Text>
+              <Text style={styles.statLabel}>Total Scans</Text>
+            </View>
+            <View style={styles.statBox}>
+              <View style={styles.statIconContainer}>
+                <Text style={styles.statIconEmoji}>💚</Text>
+              </View>
+              <Text style={styles.statValue}>{stats.averageHealth}</Text>
+              <Text style={styles.statLabel}>Avg Health</Text>
+            </View>
+            <View style={styles.statBox}>
+              <View style={styles.statIconContainer}>
+                <Text style={styles.statIconEmoji}>✨</Text>
+              </View>
+              <Text style={styles.statValue}>{stats.healthyCount}</Text>
+              <Text style={styles.statLabel}>Healthy</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Scans List */}
+        <FlatList
+          data={scans}
+          renderItem={renderScanCard}
+          keyExtractor={(item, index) => `${item.id}-${index}`}
+          ListEmptyComponent={renderEmpty}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
       </View>
 
-      {/* Stats */}
-      {stats && stats.totalScans > 0 && (
-        <View style={styles.statsContainer}>
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>{stats.totalScans}</Text>
-            <Text style={styles.statLabel}>Total Scans</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>{stats.averageHealth}</Text>
-            <Text style={styles.statLabel}>Avg Health</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statBox}>
-            <Text style={styles.statValue}>{stats.healthyCount}</Text>
-            <Text style={styles.statLabel}>Healthy</Text>
-          </View>
-        </View>
-      )}
-
-      {/* Scans List */}
-      <FlatList
-        data={scans}
-        renderItem={renderScanCard}
-        keyExtractor={(item) => item.id}
-        ListEmptyComponent={renderEmpty}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
-
       {/* Detail Modal */}
-      {renderDetailModal()}
+      <Modal
+        visible={showDetailModal}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setShowDetailModal(false)}
+      >
+        {selectedScan && (
+          <ScanResultModal
+            result={{
+              ...selectedScan,
+              healthScore: selectedScan.healthScore,
+              issues: selectedScan.issues || [],
+              image: selectedScan.image,
+              plantName: selectedScan.plantName,
+              plantType: selectedScan.plantType,
+              growthStage: selectedScan.growthStage,
+            }}
+            onComplete={() => setShowDetailModal(false)}
+            onRetry={() => {
+              setShowDetailModal(false);
+            }}
+          />
+        )}
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -486,390 +341,340 @@ const ScanHistoryScreen = ({ onBack }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#D1FAE5',
   },
+
+  // 🌿 Botanical Background (matching Home)
+  plantBackground: {
+    flex: 1,
+    backgroundColor: '#D1FAE5',
+    position: 'relative',
+  },
+
+  glowTop: {
+    position: 'absolute',
+    top: -100,
+    left: -80,
+    width: 300,
+    height: 300,
+    backgroundColor: '#6EE7B7',
+    borderRadius: 200,
+    opacity: 0.6,
+  },
+
+  glowBottom: {
+    position: 'absolute',
+    bottom: -140,
+    right: -100,
+    width: 320,
+    height: 320,
+    backgroundColor: '#34D399',
+    borderRadius: 220,
+    opacity: 0.45,
+  },
+
+  leafOne: {
+    position: 'absolute',
+    top: 120,
+    left: -40,
+    width: 160,
+    height: 280,
+    backgroundColor: '#A7F3D0',
+    borderTopLeftRadius: 120,
+    borderTopRightRadius: 20,
+    borderBottomLeftRadius: 80,
+    borderBottomRightRadius: 140,
+    opacity: 0.35,
+    transform: [{ rotate: '-20deg' }],
+  },
+
+  leafTwo: {
+    position: 'absolute',
+    top: 360,
+    right: -60,
+    width: 200,
+    height: 300,
+    backgroundColor: '#6EE7B7',
+    borderTopLeftRadius: 140,
+    borderTopRightRadius: 60,
+    borderBottomLeftRadius: 120,
+    borderBottomRightRadius: 180,
+    opacity: 0.25,
+    transform: [{ rotate: '18deg' }],
+  },
+
+  leafThree: {
+    position: 'absolute',
+    bottom: -60,
+    left: 40,
+    width: 240,
+    height: 200,
+    backgroundColor: '#34D399',
+    borderTopLeftRadius: 160,
+    borderTopRightRadius: 120,
+    borderBottomLeftRadius: 180,
+    borderBottomRightRadius: 80,
+    opacity: 0.2,
+    transform: [{ rotate: '-10deg' }],
+  },
+
+  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    backgroundColor: '#10B981',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 6,
+    marginBottom: 36,
   },
-  backButton: {
-    color: '#007AFF',
-    fontSize: 14,
-    fontWeight: '600',
+
+  backButtonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  headerTitle: {
-    fontSize: 18,
+
+  backArrow: {
+    fontSize: 20,
+    color: '#ffffff',
     fontWeight: '700',
-    color: '#333',
   },
+
+  backButton: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+
   placeholder: {
-    width: 40,
+    width: 60,
   },
+
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#D1FAE5',
   },
+
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+
+  // Stats Container (floating card)
   statsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    paddingVertical: 20,
+    marginHorizontal: 16,
+    marginTop: -30,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 6,
   },
+
   statBox: {
     flex: 1,
     alignItems: 'center',
   },
+
+  statIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#ECFDF5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+
+  statIconEmoji: {
+    fontSize: 24,
+  },
+
   statValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#333',
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#10B981',
+    marginBottom: 4,
   },
+
   statLabel: {
-    fontSize: 11,
-    color: '#999',
-    marginTop: 4,
-    fontWeight: '600',
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '700',
   },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#f0f0f0',
-  },
+
+  // List Content
   listContent: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingTop: 8,
+    paddingBottom: 24,
   },
+
+  // Scan Card
   scanCard: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 14,
     alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
+    shadowColor: '#10B981',
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
+
   scanImage: {
     width: 70,
     height: 70,
-    borderRadius: 8,
-    backgroundColor: '#e0e0e0',
-    marginRight: 12,
+    borderRadius: 14,
+    backgroundColor: '#DCFCE7',
+    marginRight: 14,
   },
+
   scanInfo: {
     flex: 1,
   },
+
   plantName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#333',
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#111827',
   },
+
   scanDate: {
     fontSize: 12,
-    color: '#999',
+    color: '#6B7280',
+    marginTop: 4,
+    fontWeight: '600',
+  },
+
+  plantTypeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginTop: 4,
   },
-  plantType: {
-    fontSize: 11,
-    color: '#666',
-    marginTop: 2,
+
+  locationDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#10B981',
   },
+
+  plantType: {
+    fontSize: 12,
+    color: '#10B981',
+    fontWeight: '700',
+  },
+
+  // Health Score
   scoreContainer: {
     alignItems: 'center',
     marginRight: 8,
   },
+
   scoreCircle: {
-    width: 55,
-    height: 55,
-    borderRadius: 27.5,
-    borderWidth: 2,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 4,
   },
+
   scoreText: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '900',
   },
+
   scoreStatus: {
     fontSize: 10,
-    color: '#666',
-    marginTop: 4,
-    fontWeight: '600',
+    fontWeight: '700',
   },
+
+  // Action Buttons
+  actionButtons: {
+    flexDirection: 'column',
+    gap: 4,
+  },
+
   favoriteButton: {
-    padding: 8,
-    marginRight: 4,
+    padding: 6,
   },
+
   favoriteIcon: {
+    fontSize: 20,
+  },
+
+  deleteButton: {
+    padding: 6,
+  },
+
+  deleteIcon: {
     fontSize: 18,
   },
-  deleteButton: {
-    padding: 8,
-  },
-  deleteIcon: {
-    fontSize: 16,
-  },
+
+  // Empty State
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 20,
+    paddingHorizontal: 40,
+    paddingVertical: 80,
   },
 
-  // Detail Modal Styles
-  detailContainer: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  detailHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  detailCloseButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  detailCloseText: {
-    color: '#007AFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  detailTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#333',
-  },
-  detailScrollContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    paddingBottom: 100,
-  },
-  detailImage: {
-    width: '100%',
-    height: 300,
-    borderRadius: 12,
-    backgroundColor: '#e0e0e0',
-    marginBottom: 16,
-  },
-  detailCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-  },
-  detailCardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#333',
-    marginBottom: 12,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-  },
-  detailRowBorder: {
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    paddingTop: 12,
-  },
-  detailLabel: {
-    fontSize: 13,
-    color: '#666',
-    fontWeight: '500',
-  },
-  detailValue: {
-    fontSize: 13,
-    color: '#333',
-    fontWeight: '600',
-  },
-  healthDetailContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  healthDetailLeft: {
-    alignItems: 'center',
-  },
-  healthDetailCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 3,
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#ECFDF5',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 24,
   },
-  healthDetailScore: {
-    fontSize: 28,
-    fontWeight: '700',
+
+  emptyIcon: {
+    fontSize: 64,
   },
-  healthDetailRight: {
-    flex: 1,
-  },
-  healthDetailStatus: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#333',
+
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#10B981',
     marginBottom: 8,
   },
-  healthDetailBar: {
-    height: 8,
-    borderRadius: 4,
-    width: '100%',
-  },
-  issueDetailCard: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: '#ff3b30',
-  },
-  issueDetailHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  issueName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#333',
-  },
-  issueSeverity: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#ff3b30',
-  },
-  issueDescription: {
-    fontSize: 12,
-    color: '#555',
-    lineHeight: 18,
-    marginBottom: 8,
-  },
-  causesContainer: {
-    marginTop: 8,
-  },
-  causesLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 6,
-  },
-  causeItem: {
-    fontSize: 12,
-    color: '#555',
-    marginBottom: 4,
-    lineHeight: 16,
-  },
-  noIssuesContainer: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  noIssuesIcon: {
-    fontSize: 40,
-    marginBottom: 8,
-  },
-  noIssuesText: {
-    fontSize: 13,
-    color: '#34C759',
-    fontWeight: '600',
-  },
-  careRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-  },
-  careRowBorder: {
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    paddingTop: 12,
-  },
-  careLabel: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
-  },
-  careValue: {
-    fontSize: 12,
-    color: '#333',
-    fontWeight: '600',
-    flex: 1,
-    textAlign: 'right',
-  },
-  detailActions: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  detailDeleteButton: {
-    flex: 1,
-    backgroundColor: '#ff3b30',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  detailDeleteText: {
-    color: '#fff',
+
+  emptyText: {
     fontSize: 14,
-    fontWeight: '600',
-  },
-  detailFavoriteButton: {
-    flex: 1,
-    backgroundColor: '#FFD700',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  detailFavoriteText: {
-    color: '#333',
-    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 22,
     fontWeight: '600',
   },
 });

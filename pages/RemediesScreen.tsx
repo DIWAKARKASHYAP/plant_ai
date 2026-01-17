@@ -1,5 +1,5 @@
 // src/pages/RemediesScreen.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,24 @@ import {
   SafeAreaView,
   ScrollView,
   FlatList,
+  BackHandler,
 } from 'react-native';
 
 const RemediesScreen = ({ issue, onBack }: any) => {
   const [activeTab, setActiveTab] = useState<'home' | 'organic' | 'chemical'>('home');
+  useEffect(() => {
+  const backAction = () => {
+    onBack?.();  // ✅ go back inside app
+    return true; // ✅ prevent app from closing
+  };
 
+  const backHandler = BackHandler.addEventListener(
+    "hardwareBackPress",
+    backAction
+  );
+
+  return () => backHandler.remove();
+}, []);
   // Sample remedies data
   const remedies = {
     home: [

@@ -1,42 +1,61 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 
-const RecentScans = ({ scans }: any) => {
-  const renderScanCard = ({ item }: any) => (
-    <View style={styles.scanCard}>
-      <View style={styles.scanCardLeft}>
-        <Text style={styles.scanIcon}>{item.icon}</Text>
-        <View style={styles.scanInfo}>
-          <Text style={styles.scanPlantName}>{item.plantName}</Text>
-          <Text style={styles.scanDate}>{item.date}</Text>
-        </View>
-      </View>
-      <View
-        style={[
-          styles.statusBadge,
-          item.status === 'Healthy' ? styles.statusHealthy : styles.statusWarning,
-        ]}
+const RecentScans = ({ scans, onSelect }: any) => {
+
+  const getStatus = (score: number) => {
+    if (score >= 80) return 'Healthy';
+    if (score >= 60) return 'Stressed';
+    return 'Diseased';
+  };
+
+  const getStatusStyle = (score: number) => {
+    if (score >= 80) return styles.statusHealthy;
+    if (score >= 60) return styles.statusWarning;
+    return styles.statusDanger;
+  };
+
+  const getStatusTextStyle = (score: number) => {
+    if (score >= 80) return styles.statusTextHealthy;
+    if (score >= 60) return styles.statusTextWarning;
+    return styles.statusTextDanger;
+  };
+
+  const renderScanCard = ({ item }: any) => {
+    const status = getStatus(item.healthScore);
+
+    return (
+      <TouchableOpacity
+        style={styles.scanCard}
+        activeOpacity={0.7}
+        onPress={() => onSelect(item)}
       >
-        <Text
-          style={[
-            styles.statusText,
-            item.status === 'Healthy' ? styles.statusTextHealthy : styles.statusTextWarning,
-          ]}
-        >
-          {item.status}
-        </Text>
-      </View>
-    </View>
-  );
+        <View style={styles.scanCardLeft}>
+          <Text style={styles.scanIcon}>🌿</Text>
+
+          <View style={styles.scanInfo}>
+            <Text style={styles.scanPlantName}>{item.plantName}</Text>
+            <Text style={styles.scanDate}>
+              {new Date(item.createdAt).toLocaleDateString()}
+            </Text>
+          </View>
+        </View>
+
+        <View style={[styles.statusBadge, getStatusStyle(item.healthScore)]}>
+          <Text style={[styles.statusText, getStatusTextStyle(item.healthScore)]}>
+            {status}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.recentScansSection}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Recent Scans</Text>
-        <TouchableOpacity>
-          <Text style={styles.viewAll}>View All →</Text>
-        </TouchableOpacity>
       </View>
+
       <FlatList
         data={scans}
         renderItem={renderScanCard}
@@ -61,20 +80,20 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#333',
-  },
-  viewAll: {
-    fontSize: 12,
-    color: '#007AFF',
-    fontWeight: '600',
+    color: '#065F46',
   },
   scanCard: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 12,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    borderRadius: 14,
+    padding: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    shadowColor: '#10B981',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 5,
   },
   scanCardLeft: {
     flexDirection: 'row',
@@ -82,7 +101,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scanIcon: {
-    fontSize: 32,
+    fontSize: 28,
     marginRight: 12,
   },
   scanInfo: {
@@ -90,39 +109,43 @@ const styles = StyleSheet.create({
   },
   scanPlantName: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: '700',
+    color: '#065F46',
   },
   scanDate: {
     fontSize: 12,
-    color: '#999',
+    color: '#059669',
     marginTop: 2,
   },
   statusBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 6,
+    borderRadius: 12,
   },
   statusHealthy: {
-    backgroundColor: '#D4EDDA',
+    backgroundColor: '#D1FAE5',
   },
   statusWarning: {
-    backgroundColor: '#FFE5E5',
+    backgroundColor: '#FEF3C7',
+  },
+  statusDanger: {
+    backgroundColor: '#FEE2E2',
   },
   statusText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   statusTextHealthy: {
-    color: '#155724',
+    color: '#065F46',
   },
   statusTextWarning: {
-    color: '#721C24',
+    color: '#92400E',
+  },
+  statusTextDanger: {
+    color: '#7F1D1D',
   },
   separator: {
-    height: 1,
-    backgroundColor: '#f0f0f0',
-    marginVertical: 8,
+    height: 10,
   },
 });
 
